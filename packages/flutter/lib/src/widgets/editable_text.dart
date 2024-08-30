@@ -2,6 +2,18 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+/// @docImport 'package:flutter/cupertino.dart';
+/// @docImport 'package:flutter/material.dart';
+///
+/// @docImport 'app.dart';
+/// @docImport 'context_menu_controller.dart';
+/// @docImport 'form.dart';
+/// @docImport 'restoration.dart';
+/// @docImport 'restoration_properties.dart';
+/// @docImport 'selectable_region.dart';
+/// @docImport 'text_selection_toolbar_layout_delegate.dart';
+library;
+
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui hide TextStyle;
@@ -194,7 +206,7 @@ class _RenderCompositionCallback extends RenderProxyBox {
 ///    with a [TextEditingController].
 ///  * [EditableText], which is a raw region of editable text that can be
 ///    controlled with a [TextEditingController].
-///  * Learn how to use a [TextEditingController] in one of our [cookbook recipes](https://flutter.dev/docs/cookbook/forms/text-field-changes#2-use-a-texteditingcontroller).
+///  * Learn how to use a [TextEditingController] in one of our [cookbook recipes](https://docs.flutter.dev/cookbook/forms/text-field-changes#2-use-a-texteditingcontroller).
 class TextEditingController extends ValueNotifier<TextEditingValue> {
   /// Creates a controller for an editable text field, with no initial selection.
   ///
@@ -314,7 +326,7 @@ class TextEditingController extends ValueNotifier<TextEditingValue> {
   /// If the new selection is outside the composing range, the composing range is
   /// cleared.
   set selection(TextSelection newSelection) {
-    if (!_isSelectionWithinTextBounds(newSelection)) {
+    if (text.length < newSelection.end || text.length < newSelection.start) {
       throw FlutterError('invalid text selection: $newSelection');
     }
     final TextRange newComposing = _isSelectionWithinComposingRange(newSelection) ? value.composing : TextRange.empty;
@@ -346,11 +358,6 @@ class TextEditingController extends ValueNotifier<TextEditingValue> {
   /// actions, not during the build, layout, or paint phases.
   void clearComposing() {
     value = value.copyWith(composing: TextRange.empty);
-  }
-
-  /// Check that the [selection] is inside of the bounds of [text].
-  bool _isSelectionWithinTextBounds(TextSelection selection) {
-    return selection.start <= text.length && selection.end <= text.length;
   }
 
   /// Check that the [selection] is inside of the composing range.
@@ -841,6 +848,7 @@ class EditableText extends StatefulWidget {
     this.onAppPrivateCommand,
     this.onSelectionChanged,
     this.onSelectionHandleTapped,
+    this.groupId = EditableText,
     this.onTapOutside,
     List<TextInputFormatter>? inputFormatters,
     this.mouseCursor,
@@ -1470,6 +1478,19 @@ class EditableText extends StatefulWidget {
   /// {@macro flutter.widgets.SelectionOverlay.onSelectionHandleTapped}
   final VoidCallback? onSelectionHandleTapped;
 
+  /// {@template flutter.widgets.editableText.groupId}
+  /// The group identifier for the [TextFieldTapRegion] of this text field.
+  ///
+  /// Text fields with the same group identifier share the same tap region.
+  /// Defaults to the type of [EditableText].
+  ///
+  /// See also:
+  ///
+  ///  * [TextFieldTapRegion], to give a [groupId] to a widget that is to be
+  ///    included in a [EditableText]'s tap region that has [groupId] set.
+  /// {@endtemplate}
+  final Object groupId;
+
   /// {@template flutter.widgets.editableText.onTapOutside}
   /// Called for each tap that occurs outside of the[TextFieldTapRegion] group
   /// when the text field is focused.
@@ -1621,12 +1642,14 @@ class EditableText extends StatefulWidget {
   final Brightness keyboardAppearance;
 
   /// {@template flutter.widgets.editableText.scrollPadding}
-  /// Configures padding to edges surrounding a [Scrollable] when the Textfield scrolls into view.
+  /// Configures the padding for the edges surrounding a [Scrollable] when the
+  /// text field scrolls into view.
   ///
-  /// When this widget receives focus and is not completely visible (for example scrolled partially
-  /// off the screen or overlapped by the keyboard)
-  /// then it will attempt to make itself visible by scrolling a surrounding [Scrollable], if one is present.
-  /// This value controls how far from the edges of a [Scrollable] the TextField will be positioned after the scroll.
+  /// When this widget receives focus and is not completely visible (for example
+  /// scrolled partially off the screen or overlapped by the keyboard), then it
+  /// will attempt to make itself visible by scrolling a surrounding
+  /// [Scrollable], if one is present. This value controls how far from the
+  /// edges of a [Scrollable] the TextField will be positioned after the scroll.
   ///
   /// Defaults to EdgeInsets.all(20.0).
   /// {@endtemplate}
@@ -2205,7 +2228,7 @@ class EditableText extends StatefulWidget {
   }
 }
 
-/// State for a [EditableText].
+/// State for an [EditableText].
 class EditableTextState extends State<EditableText> with AutomaticKeepAliveClientMixin<EditableText>, WidgetsBindingObserver, TickerProviderStateMixin<EditableText>, TextSelectionDelegate, TextInputClient implements AutofillClient {
   Timer? _cursorTimer;
   AnimationController get _cursorBlinkOpacityController {
@@ -2713,7 +2736,7 @@ class EditableTextState extends State<EditableText> with AutomaticKeepAliveClien
   static SpellCheckConfiguration _inferSpellCheckConfiguration(SpellCheckConfiguration? configuration) {
     final SpellCheckService? spellCheckService = configuration?.spellCheckService;
     final bool spellCheckAutomaticallyDisabled = configuration == null || configuration == const SpellCheckConfiguration.disabled();
-    final bool spellCheckServiceIsConfigured = spellCheckService != null || spellCheckService == null && WidgetsBinding.instance.platformDispatcher.nativeSpellCheckServiceDefined;
+    final bool spellCheckServiceIsConfigured = spellCheckService != null || WidgetsBinding.instance.platformDispatcher.nativeSpellCheckServiceDefined;
     if (spellCheckAutomaticallyDisabled || !spellCheckServiceIsConfigured) {
       // Only enable spell check if a non-disabled configuration is provided
       // and if that configuration does not specify a spell check service,
@@ -2786,7 +2809,12 @@ class EditableTextState extends State<EditableText> with AutomaticKeepAliveClien
 
   /// Gets the line heights at the start and end of the selection for the given
   /// [EditableTextState].
-  _GlyphHeights _getGlyphHeights() {
+  ///
+  /// See also:
+  ///
+  /// * [TextSelectionToolbarAnchors.getSelectionRect], which depends on this
+  ///   information.
+  ({double startGlyphHeight, double endGlyphHeight}) getGlyphHeights() {
     final TextSelection selection = textEditingValue.selection;
 
     // Only calculate handle rects if the text in the previous frame
@@ -2800,9 +2828,9 @@ class EditableTextState extends State<EditableText> with AutomaticKeepAliveClien
     final String prevText = span.toPlainText();
     final String currText = textEditingValue.text;
     if (prevText != currText || !selection.isValid || selection.isCollapsed) {
-      return _GlyphHeights(
-        start: renderEditable.preferredLineHeight,
-        end: renderEditable.preferredLineHeight,
+      return (
+        startGlyphHeight: renderEditable.preferredLineHeight,
+        endGlyphHeight: renderEditable.preferredLineHeight,
       );
     }
 
@@ -2817,9 +2845,9 @@ class EditableTextState extends State<EditableText> with AutomaticKeepAliveClien
       start: selection.end - lastSelectedGraphemeExtent,
       end: selection.end,
     ));
-    return _GlyphHeights(
-      start: startCharacterRect?.height ?? renderEditable.preferredLineHeight,
-      end: endCharacterRect?.height ?? renderEditable.preferredLineHeight,
+    return (
+      startGlyphHeight: startCharacterRect?.height ?? renderEditable.preferredLineHeight,
+      endGlyphHeight: endCharacterRect?.height ?? renderEditable.preferredLineHeight,
     );
   }
 
@@ -2838,14 +2866,14 @@ class EditableTextState extends State<EditableText> with AutomaticKeepAliveClien
       );
     }
 
-    final _GlyphHeights glyphHeights = _getGlyphHeights();
+    final (startGlyphHeight: double startGlyphHeight, endGlyphHeight: double endGlyphHeight) = getGlyphHeights();
     final TextSelection selection = textEditingValue.selection;
     final List<TextSelectionPoint> points =
         renderEditable.getEndpointsForSelection(selection);
     return TextSelectionToolbarAnchors.fromSelection(
       renderBox: renderEditable,
-      startGlyphHeight: glyphHeights.start,
-      endGlyphHeight: glyphHeights.end,
+      startGlyphHeight: startGlyphHeight,
+      endGlyphHeight: endGlyphHeight,
       selectionEndpoints: points,
     );
   }
@@ -3785,27 +3813,17 @@ class EditableTextState extends State<EditableText> with AutomaticKeepAliveClien
        && notification is! ScrollEndNotification) {
       return;
     }
-    if (notification is ScrollStartNotification
-       && _dataWhenToolbarShowScheduled != null) {
-      return;
+    switch (notification) {
+      case ScrollStartNotification() when _dataWhenToolbarShowScheduled != null:
+      case ScrollEndNotification() when _dataWhenToolbarShowScheduled == null:
+        break;
+      case ScrollEndNotification() when _dataWhenToolbarShowScheduled!.value != _value:
+        _dataWhenToolbarShowScheduled = null;
+        _disposeScrollNotificationObserver();
+      case ScrollNotification(:final BuildContext? context)
+      when !_isInternalScrollableNotification(context) && _scrollableNotificationIsFromSameSubtree(context):
+        _handleContextMenuOnScroll(notification);
     }
-    if (notification is ScrollEndNotification
-       && _dataWhenToolbarShowScheduled == null) {
-      return;
-    }
-    if (notification is ScrollEndNotification
-       && _dataWhenToolbarShowScheduled!.value != _value) {
-      _dataWhenToolbarShowScheduled = null;
-      _disposeScrollNotificationObserver();
-      return;
-    }
-    if (_isInternalScrollableNotification(notification.context)) {
-      return;
-    }
-    if (!_scrollableNotificationIsFromSameSubtree(notification.context)) {
-      return;
-    }
-    _handleContextMenuOnScroll(notification);
   }
 
   Rect _calculateDeviceRect() {
@@ -3934,7 +3952,8 @@ class EditableTextState extends State<EditableText> with AutomaticKeepAliveClien
     // We return early if the selection is not valid. This can happen when the
     // text of [EditableText] is updated at the same time as the selection is
     // changed by a gesture event.
-    if (!widget.controller._isSelectionWithinTextBounds(selection)) {
+    final String text = widget.controller.value.text;
+    if (text.length < selection.end || text.length < selection.start) {
       return;
     }
 
@@ -4489,7 +4508,6 @@ class EditableTextState extends State<EditableText> with AutomaticKeepAliveClien
     Rect? composingRect = renderEditable.getRectForComposingRange(composingRange);
     // Send the caret location instead if there's no marked text yet.
     if (composingRect == null) {
-      assert(!composingRange.isValid || composingRange.isCollapsed);
       final int offset = composingRange.isValid ? composingRange.start : 0;
       composingRect = renderEditable.getLocalRectForCaret(TextPosition(offset: offset));
     }
@@ -5080,7 +5098,7 @@ class EditableTextState extends State<EditableText> with AutomaticKeepAliveClien
   }
 
 
-  /// The default behavior used if [onTapOutside] is null.
+  /// The default behavior used if [EditableText.onTapOutside] is null.
   ///
   /// The `event` argument is the [PointerDownEvent] that caused the notification.
   void _defaultOnTapOutside(PointerDownEvent event) {
@@ -5166,6 +5184,7 @@ class EditableTextState extends State<EditableText> with AutomaticKeepAliveClien
       compositeCallback: _compositeCallback,
       enabled: _hasInputConnection,
       child: TextFieldTapRegion(
+        groupId: widget.groupId,
         onTapOutside: _hasFocus ? widget.onTapOutside ?? _defaultOnTapOutside : null,
         debugLabel: kReleaseMode ? null : 'EditableText',
         child: MouseRegion(
@@ -5731,7 +5750,7 @@ class _ScribblePlaceholder extends WidgetSpan {
 /// See also:
 ///
 ///  * [String.runes], which deals with code points like this class.
-///  * [String.characters], which deals with graphemes.
+///  * [Characters], which deals with graphemes.
 ///  * [CharacterBoundary], which is a [TextBoundary] like this class, but whose
 ///    boundaries are graphemes instead of code points.
 class _CodePointBoundary extends TextBoundary {
@@ -5795,6 +5814,23 @@ class _DeleteTextAction<T extends DirectionalTextEditingIntent> extends ContextA
   final TextBoundary Function() getTextBoundary;
   final _ApplyTextBoundary _applyTextBoundary;
 
+  void _hideToolbarIfTextChanged(ReplaceTextIntent intent) {
+    if (state._selectionOverlay == null || !state.selectionOverlay!.toolbarIsVisible) {
+      return;
+    }
+    final TextEditingValue oldValue = intent.currentTextEditingValue;
+    final TextEditingValue newValue = intent.currentTextEditingValue.replaced(
+      intent.replacementRange,
+      intent.replacementText,
+    );
+    if (oldValue.text != newValue.text) {
+      // Hide the toolbar if the text was changed, but only hide the toolbar
+      // overlay; the selection handle's visibility will be handled
+      // by `_handleSelectionChanged`.
+      state.hideToolbar(false);
+    }
+  }
+
   @override
   Object? invoke(T intent, [BuildContext? context]) {
     final TextSelection selection = state._value.selection;
@@ -5810,9 +5846,11 @@ class _DeleteTextAction<T extends DirectionalTextEditingIntent> extends ContextA
         start: atomicBoundary.getLeadingTextBoundaryAt(selection.start) ?? state._value.text.length,
         end: atomicBoundary.getTrailingTextBoundaryAt(selection.end - 1) ?? 0,
       );
+      final ReplaceTextIntent replaceTextIntent = ReplaceTextIntent(state._value, '', range, SelectionChangedCause.keyboard);
+      _hideToolbarIfTextChanged(replaceTextIntent);
       return Actions.invoke(
         context!,
-        ReplaceTextIntent(state._value, '', range, SelectionChangedCause.keyboard),
+        replaceTextIntent,
       );
     }
 
@@ -5824,9 +5862,11 @@ class _DeleteTextAction<T extends DirectionalTextEditingIntent> extends ContextA
         : atomicBoundary.getTrailingTextBoundaryAt(selection.baseOffset - 1) ?? 0,
       extentOffset: target,
     );
+    final ReplaceTextIntent replaceTextIntent = ReplaceTextIntent(state._value, '', rangeToDelete, SelectionChangedCause.keyboard);
+    _hideToolbarIfTextChanged(replaceTextIntent);
     return Actions.invoke(
       context!,
-      ReplaceTextIntent(state._value, '', rangeToDelete, SelectionChangedCause.keyboard),
+      replaceTextIntent,
     );
   }
 
@@ -6024,21 +6064,6 @@ class _CopySelectionAction extends ContextAction<CopySelectionTextIntent> {
 
   @override
   bool get isActionEnabled => state._value.selection.isValid && !state._value.selection.isCollapsed;
-}
-
-/// The start and end glyph heights of some range of text.
-@immutable
-class _GlyphHeights {
-  const _GlyphHeights({
-    required this.start,
-    required this.end,
-  });
-
-  /// The glyph height of the first line.
-  final double start;
-
-  /// The glyph height of the last line.
-  final double end;
 }
 
 /// A [ClipboardStatusNotifier] whose [value] is hardcoded to

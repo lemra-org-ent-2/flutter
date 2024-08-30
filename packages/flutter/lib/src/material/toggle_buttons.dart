@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+/// @docImport 'button_style_button.dart';
+/// @docImport 'ink_well.dart';
+/// @docImport 'segmented_button.dart';
+library;
+
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
@@ -266,7 +271,7 @@ class ToggleButtons extends StatelessWidget {
 
   /// {@macro flutter.material.RawMaterialButton.mouseCursor}
   ///
-  /// If this property is null, [MaterialStateMouseCursor.clickable] will be used.
+  /// If this property is null, [WidgetStateMouseCursor.clickable] will be used.
   final MouseCursor? mouseCursor;
 
   /// Configures the minimum size of the area within which the buttons may
@@ -334,11 +339,11 @@ class ToggleButtons extends StatelessWidget {
   /// [ToggleButtonsThemeData.fillColor] is also null, then
   /// the fill color is null.
   ///
-  /// If fillColor is a [MaterialStateProperty<Color>], then [MaterialStateProperty.resolve]
-  /// is used for the following [MaterialState]s:
+  /// If fillColor is a [WidgetStateProperty<Color>], then [WidgetStateProperty.resolve]
+  /// is used for the following [WidgetState]s:
   ///
-  ///  * [MaterialState.disabled]
-  ///  * [MaterialState.selected]
+  ///  * [WidgetState.disabled]
+  ///  * [WidgetState.selected]
   ///
   final Color? fillColor;
 
@@ -738,26 +743,16 @@ class ToggleButtons extends StatelessWidget {
         ?? theme.textTheme.bodyMedium!;
       final BoxConstraints? currentConstraints = constraints
         ?? toggleButtonsTheme.constraints;
-      final Size minimumSize = currentConstraints == null
-        ? const Size.square(kMinInteractiveDimension)
-        : Size(currentConstraints.minWidth, currentConstraints.minHeight);
-      final Size? maximumSize = currentConstraints == null
-        ? null
-        : Size(currentConstraints.maxWidth, currentConstraints.maxHeight);
+      final Size minimumSize = currentConstraints?.smallest
+        ?? const Size.square(kMinInteractiveDimension);
+      final Size? maximumSize = currentConstraints?.biggest;
       final Size minPaddingSize;
       switch (tapTargetSize ?? theme.materialTapTargetSize) {
         case MaterialTapTargetSize.padded:
-          if (direction == Axis.horizontal) {
-            minPaddingSize = const Size(
-              0.0,
-              kMinInteractiveDimension,
-            );
-          } else {
-            minPaddingSize = const Size(
-              kMinInteractiveDimension,
-              0.0,
-            );
-          }
+          minPaddingSize = switch (direction) {
+            Axis.horizontal => const Size(0.0, kMinInteractiveDimension),
+            Axis.vertical   => const Size(kMinInteractiveDimension, 0.0),
+          };
           assert(minPaddingSize.width >= 0.0);
           assert(minPaddingSize.height >= 0.0);
         case MaterialTapTargetSize.shrinkWrap:
@@ -780,6 +775,8 @@ class ToggleButtons extends StatelessWidget {
             style: ButtonStyle(
               backgroundColor: MaterialStatePropertyAll<Color?>(effectiveFillColor),
               foregroundColor: MaterialStatePropertyAll<Color?>(currentColor),
+              iconSize: const MaterialStatePropertyAll<double>(24.0),
+              iconColor: MaterialStatePropertyAll<Color?>(currentColor),
               overlayColor: _ToggleButtonDefaultOverlay(
                 selected:  onPressed != null && isSelected[index],
                 unselected: onPressed != null && !isSelected[index],
@@ -1658,12 +1655,10 @@ class _RenderInputPadding extends RenderShiftedBox {
     }
 
     // Only adjust one axis to ensure the correct button is tapped.
-    Offset center;
-    if (direction == Axis.horizontal) {
-      center = Offset(position.dx, child!.size.height / 2);
-    } else {
-      center = Offset(child!.size.width / 2, position.dy);
-    }
+    final Offset center = switch (direction) {
+      Axis.horizontal => Offset(position.dx, child!.size.height / 2),
+      Axis.vertical   => Offset(child!.size.width / 2, position.dy),
+    };
     return result.addWithRawTransform(
       transform: MatrixUtils.forceToPoint(center),
       position: center,

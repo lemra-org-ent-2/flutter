@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+/// @docImport 'package:flutter/widgets.dart';
+///
+/// @docImport 'proxy_box.dart';
+library;
+
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
@@ -896,9 +901,7 @@ class RenderConstraintsTransformBox extends RenderAligningShiftedBox with DebugO
 
   @override
   void paint(PaintingContext context, Offset offset) {
-    // There's no point in drawing the child if we're empty, or there is no
-    // child.
-    if (child == null || size.isEmpty) {
+    if (child == null) {
       return;
     }
 
@@ -919,6 +922,9 @@ class RenderConstraintsTransformBox extends RenderAligningShiftedBox with DebugO
 
     // Display the overflow indicator if clipBehavior is Clip.none.
     assert(() {
+      if (size.isEmpty) {
+        return true;
+      }
       switch (clipBehavior) {
         case Clip.none:
           paintOverflowIndicator(context, offset, _overflowContainerRect, _overflowChildRect);

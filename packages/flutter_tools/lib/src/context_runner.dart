@@ -102,7 +102,6 @@ Future<T> runInContext<T>(
         processManager: globals.processManager,
         fileSystem: globals.fs,
         artifacts: globals.artifacts!,
-        usage: globals.flutterUsage,
         analytics: globals.analytics,
         gradleUtils: globals.gradleUtils!,
         platform: globals.platform,
@@ -215,6 +214,7 @@ Future<T> runInContext<T>(
         fuchsiaSdk: globals.fuchsiaSdk!,
         operatingSystemUtils: globals.os,
         customDevicesConfig: globals.customDevicesConfig,
+        nativeAssetsBuilder: globals.nativeAssetsBuilder,
       ),
       DevtoolsLauncher: () => DevtoolsServerLauncher(
         processManager: globals.processManager,

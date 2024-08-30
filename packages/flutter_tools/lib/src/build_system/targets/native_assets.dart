@@ -64,17 +64,15 @@ class NativeAssets extends Target {
       }
       final TargetPlatform targetPlatform = getTargetPlatformForName(targetPlatformEnvironment);
       final Uri projectUri = environment.projectDir.uri;
-      final File packagesFile = fileSystem
-          .directory(projectUri)
-          .childDirectory('.dart_tool')
-          .childFile('package_config.json');
+
       final PackageConfig packageConfig = await loadPackageConfigWithLogging(
-        packagesFile,
+        fileSystem.file(environment.packageConfigPath),
         logger: environment.logger,
       );
       final NativeAssetsBuildRunner buildRunner = _buildRunner ??
           NativeAssetsBuildRunnerImpl(
             projectUri,
+            environment.packageConfigPath,
             packageConfig,
             fileSystem,
             environment.logger,
@@ -371,13 +369,17 @@ class NativeAssets extends Target {
   ];
 
   @override
-  List<Target> get dependencies => <Target>[];
+  List<Target> get dependencies => const <Target>[
+    // In AOT, depends on tree-shaking information (resources.json) from compiling dart.
+    KernelSnapshotProgram(),
+  ];
 
   @override
   List<Source> get inputs => const <Source>[
     Source.pattern('{FLUTTER_ROOT}/packages/flutter_tools/lib/src/build_system/targets/native_assets.dart'),
     // If different packages are resolved, different native assets might need to be built.
-    Source.pattern('{PROJECT_DIR}/.dart_tool/package_config_subset'),
+    Source.pattern('{WORKSPACE_DIR}/.dart_tool/package_config_subset'),
+    // TODO(mosuem): Should consume resources.json. https://github.com/flutter/flutter/issues/146263
   ];
 
   @override

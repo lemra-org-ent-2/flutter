@@ -60,7 +60,7 @@ Future<bool> run(List<String> arguments) async {
   void printHelp() {
     print('run_tests.dart [options...] path/to/file1.test path/to/file2.test...');
     print('For details on the test registry format, see:');
-    print('  https://github.com/flutter/tests/blob/master/registry/template.test');
+    print('  https://github.com/flutter/tests/blob/main/registry/template.test');
     print('');
     print(argParser.usage);
     print('');
@@ -129,7 +129,9 @@ Future<bool> run(List<String> arguments) async {
   return runTests(
     repeat: repeat,
     skipOnFetchFailure: skipOnFetchFailure,
-    verbose: verbose,
+    // TODO(Piinks): Restore after resolving https://github.com/flutter/flutter/issues/154251
+    // Needed to see time stamps of individual test runs and identify long running test.
+    verbose: true,
     numberShards: numberShards,
     shardIndex: shardIndex,
     files: files,

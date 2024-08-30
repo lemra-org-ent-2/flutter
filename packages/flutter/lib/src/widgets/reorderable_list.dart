@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+/// @docImport 'package:flutter/material.dart';
+library;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
@@ -22,7 +25,6 @@ import 'scrollable.dart';
 import 'scrollable_helpers.dart';
 import 'sliver.dart';
 import 'sliver_prototype_extent_list.dart';
-import 'sliver_varied_extent_list.dart';
 import 'ticker_provider.dart';
 import 'transitions.dart';
 
@@ -625,9 +627,7 @@ class SliverReorderableListState extends State<SliverReorderableList> with Ticke
 
   late ScrollableState _scrollable;
   Axis get _scrollDirection => axisDirectionToAxis(_scrollable.axisDirection);
-  bool get _reverse =>
-    _scrollable.axisDirection == AxisDirection.up ||
-    _scrollable.axisDirection == AxisDirection.left;
+  bool get _reverse => axisDirectionIsReversed(_scrollable.axisDirection);
 
   @override
   void didChangeDependencies() {
@@ -1053,11 +1053,11 @@ class SliverReorderableListState extends State<SliverReorderableList> with Ticke
 
 class _ReorderableItem extends StatefulWidget {
   const _ReorderableItem({
-    required Key key,
+    required Key super.key,
     required this.index,
     required this.child,
     required this.capturedThemes,
-  }) : super(key: key);
+  });
 
   final int index;
   final Widget child;
@@ -1117,8 +1117,8 @@ class _ReorderableItemState extends State<_ReorderableItem> {
       return SizedBox.fromSize(size: size);
     }
     _listState._registerItem(this);
-    return Transform(
-      transform: Matrix4.translationValues(offset.dx, offset.dy, 0.0),
+    return Transform.translate(
+      offset: offset,
       child: widget.child,
     );
   }
@@ -1159,7 +1159,7 @@ class _ReorderableItemState extends State<_ReorderableItem> {
           )
             ..addListener(rebuild)
             ..addStatusListener((AnimationStatus status) {
-              if (status == AnimationStatus.completed) {
+              if (status.isCompleted) {
                 _startOffset = _targetOffset;
                 _offsetAnimation!.dispose();
                 _offsetAnimation = null;
@@ -1340,6 +1340,7 @@ class _DragInfo extends Drag {
     dragOffset = itemRenderBox.globalToLocal(initialPosition);
     itemSize = item.context.size!;
     itemExtent = _sizeExtent(itemSize, scrollDirection);
+    itemLayoutConstraints = itemRenderBox.constraints;
     scrollable = Scrollable.of(item.context);
   }
 
@@ -1357,6 +1358,7 @@ class _DragInfo extends Drag {
   late Offset dragPosition;
   late Offset dragOffset;
   late Size itemSize;
+  late BoxConstraints itemLayoutConstraints;
   late double itemExtent;
   late CapturedThemes capturedThemes;
   ScrollableState? scrollable;
@@ -1375,7 +1377,7 @@ class _DragInfo extends Drag {
       duration: const Duration(milliseconds: 250),
     )
     ..addStatusListener((AnimationStatus status) {
-      if (status == AnimationStatus.dismissed) {
+      if (status.isDismissed) {
         _dropCompleted();
       }
     })
@@ -1414,6 +1416,7 @@ class _DragInfo extends Drag {
         listState: listState,
         index: index,
         size: itemSize,
+        constraints: itemLayoutConstraints,
         animation: _proxyAnimation!,
         position: dragPosition - dragOffset - _overlayOrigin(context),
         proxyDecorator: proxyDecorator,
@@ -1436,6 +1439,7 @@ class _DragItemProxy extends StatelessWidget {
     required this.child,
     required this.position,
     required this.size,
+    required this.constraints,
     required this.animation,
     required this.proxyDecorator,
   });
@@ -1445,6 +1449,7 @@ class _DragItemProxy extends StatelessWidget {
   final Widget child;
   final Offset position;
   final Size size;
+  final BoxConstraints constraints;
   final AnimationController animation;
   final ReorderItemProxyDecorator? proxyDecorator;
 
@@ -1471,7 +1476,14 @@ class _DragItemProxy extends StatelessWidget {
             child: SizedBox(
               width: size.width,
               height: size.height,
-              child: child,
+              child: OverflowBox(
+                minWidth: constraints.minWidth,
+                minHeight: constraints.minHeight,
+                maxWidth: constraints.maxWidth,
+                maxHeight: constraints.maxHeight,
+                alignment: listState._scrollDirection == Axis.horizontal ? Alignment.centerLeft : Alignment.topCenter,
+                child: child,
+              ),
             ),
           );
         },
@@ -1489,12 +1501,10 @@ double _sizeExtent(Size size, Axis scrollDirection) {
 }
 
 Size _extentSize(double extent, Axis scrollDirection) {
-  switch (scrollDirection) {
-    case Axis.horizontal:
-      return Size(extent, 0);
-    case Axis.vertical:
-      return Size(0, extent);
-  }
+  return switch (scrollDirection) {
+    Axis.horizontal => Size(extent, 0),
+    Axis.vertical => Size(0, extent),
+  };
 }
 
 double _offsetExtent(Offset offset, Axis scrollDirection) {

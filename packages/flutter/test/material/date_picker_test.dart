@@ -11,6 +11,7 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import '../widgets/clipboard_utils.dart';
@@ -871,9 +872,13 @@ void main() {
       // Test switch button position.
       final Finder switchButtonM3 = find.widgetWithIcon(IconButton, Icons.edit_outlined);
       final Offset switchButtonTopLeft = tester.getTopLeft(switchButtonM3);
+      final Offset switchButtonBottomLeft = tester.getBottomLeft(switchButtonM3);
       final Offset headerTextBottomLeft = tester.getBottomLeft(headerText);
-      expect(switchButtonTopLeft.dx, dialogTopLeft.dx + 4.0);
+      final Offset dialogBottomLeft = tester.getBottomLeft(find.byType(AnimatedContainer));
+      expect(switchButtonTopLeft.dx, dialogTopLeft.dx + 8.0);
       expect(switchButtonTopLeft.dy, headerTextBottomLeft.dy);
+      expect(switchButtonBottomLeft.dx, dialogTopLeft.dx + 8.0);
+      expect(switchButtonBottomLeft.dy, dialogBottomLeft.dy - 6.0);
 
       // Test vertical divider position.
       final Finder divider = find.byType(VerticalDivider);
@@ -886,7 +891,7 @@ void main() {
       final Offset subHeaderTextTopLeft = tester.getTopLeft(subHeaderText);
       final Offset dividerTopRight = tester.getTopRight(divider);
       expect(subHeaderTextTopLeft.dx, dividerTopRight.dx + 24.0);
-      if (!kIsWeb || isCanvasKit) { // https://github.com/flutter/flutter/issues/99933
+      if (!kIsWeb || isSkiaWeb) { // https://github.com/flutter/flutter/issues/99933
         expect(subHeaderTextTopLeft.dy,  dialogTopLeft.dy + 16.0);
       }
 
@@ -902,7 +907,7 @@ void main() {
       final Offset calendarPageViewTopLeft = tester.getTopLeft(calendarPageView);
       final Offset subHeaderTextBottomLeft = tester.getBottomLeft(subHeaderText);
       expect(calendarPageViewTopLeft.dx, dividerTopRight.dx);
-      if (!kIsWeb || isCanvasKit) { // https://github.com/flutter/flutter/issues/99933
+      if (!kIsWeb || isSkiaWeb) { // https://github.com/flutter/flutter/issues/99933
         expect(calendarPageViewTopLeft.dy, subHeaderTextBottomLeft.dy + 16.0);
       }
 
@@ -964,7 +969,7 @@ void main() {
       final Offset headerTextTextTopLeft = tester.getTopLeft(headerText);
       final Offset helpTextBottomLeft = tester.getBottomLeft(helpText);
       expect(headerTextTextTopLeft.dx, dialogTopLeft.dx + 24.0);
-      if (!kIsWeb || isCanvasKit) { // https://github.com/flutter/flutter/issues/99933
+      if (!kIsWeb || isSkiaWeb) { // https://github.com/flutter/flutter/issues/99933
         expect(headerTextTextTopLeft.dy, helpTextBottomLeft.dy + 28.0);
       }
 
@@ -986,7 +991,7 @@ void main() {
       final Offset subHeaderTextTopLeft = tester.getTopLeft(subHeaderText);
       final Offset dividerBottomLeft = tester.getBottomLeft(divider);
       expect(subHeaderTextTopLeft.dx, dialogTopLeft.dx + 24.0);
-      if (!kIsWeb || isCanvasKit) { // https://github.com/flutter/flutter/issues/99933
+      if (!kIsWeb || isSkiaWeb) { // https://github.com/flutter/flutter/issues/99933
         expect(subHeaderTextTopLeft.dy, dividerBottomLeft.dy + 16.0);
       }
 
@@ -1011,7 +1016,7 @@ void main() {
       final Offset calendarPageViewTopLeft = tester.getTopLeft(calendarPageView);
       final Offset subHeaderTextBottomLeft = tester.getBottomLeft(subHeaderText);
       expect(calendarPageViewTopLeft.dx, dialogTopLeft.dx);
-      if (!kIsWeb || isCanvasKit) { // https://github.com/flutter/flutter/issues/99933
+      if (!kIsWeb || isSkiaWeb) { // https://github.com/flutter/flutter/issues/99933
         expect(calendarPageViewTopLeft.dy, subHeaderTextBottomLeft.dy + 16.0);
       }
 
@@ -1312,6 +1317,35 @@ void main() {
         expect(find.text('2017'), findsNothing);
       });
     });
+
+    testWidgets('Calendar dialog contents are visible - textScaler 0.88, 1.0, 2.0',
+      (WidgetTester tester) async {
+        addTearDown(tester.view.reset);
+        tester.view.physicalSize = const Size(400, 800);
+        tester.view.devicePixelRatio = 1.0;
+        final List<double> scales = <double>[0.88, 1.0, 2.0];
+
+        for (final double scale in scales) {
+          await tester.pumpWidget(
+            MaterialApp(
+              home: MediaQuery(
+                data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+                child: Material(
+                  child: DatePickerDialog(
+                    firstDate: DateTime(2001),
+                    lastDate: DateTime(2031, DateTime.december, 31),
+                    initialDate: DateTime(2016, DateTime.january, 15),
+                    initialEntryMode: DatePickerEntryMode.calendarOnly,
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          await expectLater(find.byType(Dialog), matchesGoldenFile('date_picker.calendar.contents.visible.$scale.png'));
+        }
+    });
   });
 
   group('Input mode', () {
@@ -1541,6 +1575,7 @@ void main() {
           label: '3, Sunday, January 3, 2016, Today',
           isButton: true,
           hasTapAction: true,
+          hasFocusAction: true,
           isFocusable: true,
         ));
 
@@ -1549,6 +1584,7 @@ void main() {
           tooltip: 'Switch to input',
           isButton: true,
           hasTapAction: true,
+          hasFocusAction: true,
           isEnabled: true,
           hasEnabledState: true,
           isFocusable: true,
@@ -1561,6 +1597,7 @@ void main() {
           label: 'OK',
           isButton: true,
           hasTapAction: true,
+          hasFocusAction: true,
           isEnabled: true,
           hasEnabledState: true,
           isFocusable: true,
@@ -1569,6 +1606,7 @@ void main() {
           label: 'CANCEL',
           isButton: true,
           hasTapAction: true,
+          hasFocusAction: true,
           isEnabled: true,
           hasEnabledState: true,
           isFocusable: true,
@@ -1599,6 +1637,7 @@ void main() {
           tooltip: 'Switch to calendar',
           isButton: true,
           hasTapAction: true,
+          hasFocusAction: true,
           isEnabled: true,
           hasEnabledState: true,
           isFocusable: true,
@@ -1612,6 +1651,7 @@ void main() {
           isFocused: true,
           value: '01/15/2016',
           hasTapAction: true,
+          hasFocusAction: true,
           hasSetTextAction: true,
           hasSetSelectionAction: true,
           hasCopyAction: true,
@@ -1626,6 +1666,7 @@ void main() {
           label: 'OK',
           isButton: true,
           hasTapAction: true,
+          hasFocusAction: true,
           isEnabled: true,
           hasEnabledState: true,
           isFocusable: true,
@@ -1634,12 +1675,30 @@ void main() {
           label: 'CANCEL',
           isButton: true,
           hasTapAction: true,
+          hasFocusAction: true,
           isEnabled: true,
           hasEnabledState: true,
           isFocusable: true,
         ));
       });
       semantics.dispose();
+    });
+
+    // Regression test for https://github.com/flutter/flutter/pull/152705
+    testWidgets('datepicker dialog semantics node not focusable', (WidgetTester tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: Material(
+          child: DatePickerDialog(
+            initialDate: initialDate,
+            firstDate: firstDate,
+            lastDate: lastDate,
+          ),
+        ),
+      ));
+
+      final SemanticsNode node = tester.semantics.find(find.byType(DatePickerDialog));
+      final SemanticsData semanticsData = node.getSemanticsData();
+      expect(semanticsData.hasFlag(SemanticsFlag.isFocusable), false);
     });
   });
 

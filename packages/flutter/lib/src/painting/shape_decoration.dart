@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+/// @docImport 'package:flutter/material.dart';
+library;
+
 import 'package:flutter/foundation.dart';
 
 import 'basic_types.dart';
@@ -184,22 +187,20 @@ class ShapeDecoration extends Decoration {
 
   @override
   ShapeDecoration? lerpFrom(Decoration? a, double t) {
-    if (a is BoxDecoration) {
-      return ShapeDecoration.lerp(ShapeDecoration.fromBoxDecoration(a), this, t);
-    } else if (a == null || a is ShapeDecoration) {
-      return ShapeDecoration.lerp(a as ShapeDecoration?, this, t);
-    }
-    return super.lerpFrom(a, t) as ShapeDecoration?;
+    return switch (a) {
+      BoxDecoration() => ShapeDecoration.lerp(ShapeDecoration.fromBoxDecoration(a), this, t),
+      ShapeDecoration? _ => ShapeDecoration.lerp(a, this, t),
+      _ => super.lerpFrom(a, t) as ShapeDecoration?,
+    };
   }
 
   @override
   ShapeDecoration? lerpTo(Decoration? b, double t) {
-    if (b is BoxDecoration) {
-      return ShapeDecoration.lerp(this, ShapeDecoration.fromBoxDecoration(b), t);
-    } else if (b == null || b is ShapeDecoration) {
-      return ShapeDecoration.lerp(this, b as ShapeDecoration?, t);
-    }
-    return super.lerpTo(b, t) as ShapeDecoration?;
+    return switch (b) {
+      BoxDecoration() => ShapeDecoration.lerp(this, ShapeDecoration.fromBoxDecoration(b), t),
+      ShapeDecoration? _ => ShapeDecoration.lerp(this, b, t),
+      _ => super.lerpTo(b, t) as ShapeDecoration?,
+    };
   }
 
   /// Linearly interpolate between two shapes.
@@ -405,11 +406,24 @@ class _ShapeDecorationPainter extends BoxPainter {
   void _paintInterior(Canvas canvas, Rect rect, TextDirection? textDirection) {
     if (_interiorPaint != null) {
       if (_decoration.shape.preferPaintInterior) {
-        _decoration.shape.paintInterior(canvas, rect, _interiorPaint!, textDirection: textDirection);
+        // When border is filled, the rect is reduced to avoid anti-aliasing
+        // rounding error leaking the background color around the clipped shape.
+        final Rect adjustedRect = _adjustedRectOnOutlinedBorder(rect);
+        _decoration.shape.paintInterior(canvas, adjustedRect, _interiorPaint!, textDirection: textDirection);
       } else {
         canvas.drawPath(_outerPath, _interiorPaint!);
       }
     }
+  }
+
+  Rect _adjustedRectOnOutlinedBorder(Rect rect) {
+    if (_decoration.shape is OutlinedBorder && _decoration.color != null) {
+      final BorderSide side = (_decoration.shape as OutlinedBorder).side;
+      if (side.color.alpha == 255 && side.style == BorderStyle.solid) {
+        return rect.deflate(side.strokeInset / 2);
+      }
+    }
+    return rect;
   }
 
   DecorationImagePainter? _imagePainter;

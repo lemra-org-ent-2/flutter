@@ -16,6 +16,7 @@ import '../base/file_system.dart';
 import '../base/logger.dart';
 import '../base/platform.dart';
 import '../base/utils.dart';
+import '../build_info.dart';
 import '../cache.dart';
 import '../convert.dart';
 import '../reporting/reporting.dart';
@@ -182,21 +183,13 @@ abstract class Target {
     List<File> outputs,
     Environment environment,
   ) {
-    final File stamp = _findStampFile(environment);
-    final List<String> inputPaths = <String>[];
-    for (final File input in inputs) {
-      inputPaths.add(input.path);
-    }
-    final List<String> outputPaths = <String>[];
-    for (final File output in outputs) {
-      outputPaths.add(output.path);
-    }
-    final String? key = buildKey;
+    String getPath(File file) => file.path;
     final Map<String, Object> result = <String, Object>{
-      'inputs': inputPaths,
-      'outputs': outputPaths,
-      if (key != null) 'buildKey': key,
+      'inputs': inputs.map(getPath).toList(),
+      'outputs': outputs.map(getPath).toList(),
+      if (buildKey case final String key) 'buildKey': key,
     };
+    final File stamp = _findStampFile(environment);
     if (!stamp.existsSync()) {
       stamp.createSync();
     }
@@ -341,6 +334,7 @@ class Environment {
   /// [engineVersion] should be set to null for local engine builds.
   factory Environment({
     required Directory projectDir,
+    required String packageConfigPath,
     required Directory outputDir,
     required Directory cacheDir,
     required Directory flutterRootDir,
@@ -381,6 +375,7 @@ class Environment {
     return Environment._(
       outputDir: outputDir,
       projectDir: projectDir,
+      packageConfigPath: packageConfigPath,
       buildDir: buildDirectory,
       rootBuildDir: rootBuildDir,
       cacheDir: cacheDir,
@@ -405,6 +400,7 @@ class Environment {
   @visibleForTesting
   factory Environment.test(Directory testDirectory, {
     Directory? projectDir,
+    String? packageConfigPath,
     Directory? outputDir,
     Directory? cacheDir,
     Directory? flutterRootDir,
@@ -423,6 +419,7 @@ class Environment {
   }) {
     return Environment(
       projectDir: projectDir ?? testDirectory,
+      packageConfigPath: packageConfigPath ?? '.dart_tool/package_config.json',
       outputDir: outputDir ?? testDirectory,
       cacheDir: cacheDir ?? testDirectory,
       flutterRootDir: flutterRootDir ?? testDirectory,
@@ -444,6 +441,7 @@ class Environment {
   Environment._({
     required this.outputDir,
     required this.projectDir,
+    required this.packageConfigPath,
     required this.buildDir,
     required this.rootBuildDir,
     required this.cacheDir,
@@ -464,6 +462,11 @@ class Environment {
   /// The [Source] value which is substituted with the path to [projectDir].
   static const String kProjectDirectory = '{PROJECT_DIR}';
 
+  /// The [Source] value which is substituted with the path to the directory
+  /// that contains `.dart_tool/package_config.json1`.
+  /// That is the grand-parent of [BuildInfo.packageConfigPath].
+  static const String kWorkspaceDirectory = '{WORKSPACE_DIR}';
+
   /// The [Source] value which is substituted with the path to [buildDir].
   static const String kBuildDirectory = '{BUILD_DIR}';
 
@@ -482,10 +485,16 @@ class Environment {
   /// can be located.
   final Directory projectDir;
 
+  /// The path to the package configuration file to use for compilation.
+  ///
+  /// This is used by package:package_config to locate the actual package_config.json
+  /// file. If not provided, defaults to `.dart_tool/package_config.json`.
+  final String packageConfigPath;
+
   /// The `BUILD_DIR` environment variable.
   ///
   /// The root of the output directory where build step intermediates and
-  /// outputs are written. Current usages of assemble configure ths to be
+  /// outputs are written. Current usages of assemble configure this to be
   /// a unique directory under `.dart_tool/flutter_build`, though it can
   /// be placed anywhere. The uniqueness is only enforced by callers, and
   /// is currently done by hashing the build configuration.
@@ -743,6 +752,13 @@ class FlutterBuildSystem extends BuildSystem {
     FileSystem fileSystem,
     Map<String, File> currentOutputs,
   ) {
+    if (environment.defines[kXcodePreAction] == 'PrepareFramework') {
+      // If the current build is the PrepareFramework Xcode pre-action, skip
+      // updating the last build identifier and cleaning up the previous build
+      // since this build is not a complete build.
+      return;
+    }
+
     final String currentBuildId = fileSystem.path.basename(environment.buildDir.path);
     final File lastBuildIdFile = environment.outputDir.childFile('.last_build_id');
     if (!lastBuildIdFile.existsSync()) {

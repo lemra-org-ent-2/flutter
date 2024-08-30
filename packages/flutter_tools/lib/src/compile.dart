@@ -247,12 +247,14 @@ class KernelCompiler {
       sdkRoot = '$sdkRoot/';
     }
     String? mainUri;
-    final File mainFile = _fileSystem.file(mainPath);
-    final Uri mainFileUri = mainFile.uri;
-    if (packagesPath != null) {
-      mainUri = packageConfig.toPackageUri(mainFileUri)?.toString();
+    if (mainPath != null) {
+      final File mainFile = _fileSystem.file(mainPath);
+      final Uri mainFileUri = mainFile.uri;
+      if (packagesPath != null) {
+        mainUri = packageConfig.toPackageUri(mainFileUri)?.toString();
+      }
+      mainUri ??= toMultiRootPath(mainFileUri, _fileSystemScheme, _fileSystemRoots, _fileSystem.path.separator == r'\');
     }
-    mainUri ??= toMultiRootPath(mainFileUri, _fileSystemScheme, _fileSystemRoots, _fileSystem.path.separator == r'\');
     if (outputFilePath != null && !_fileSystem.isFileSync(outputFilePath)) {
       _fileSystem.file(outputFilePath).createSync(recursive: true);
     }
@@ -278,7 +280,6 @@ class KernelCompiler {
       }
       commandToStartFrontendServer = <String>[
         engineDartPath,
-        '--disable-dart-dev',
         frontendServerStarterPath,
       ];
     } else {
@@ -288,7 +289,6 @@ class KernelCompiler {
       }
       commandToStartFrontendServer = <String>[
         engineDartAotRuntimePath,
-        '--disable-dart-dev',
         _artifacts.getArtifactPath(
           Artifact.frontendServerSnapshotForEngineDartSdk,
           platform: platform,
@@ -359,7 +359,8 @@ class KernelCompiler {
       // See: https://github.com/flutter/flutter/issues/103994
       '--verbosity=error',
       ...?extraFrontEndOptions,
-      mainUri,
+      if (mainUri != null) mainUri
+      else '--native-assets-only',
     ];
 
     _logger.printTrace(command.join(' '));
@@ -792,13 +793,11 @@ class DefaultResidentCompiler implements ResidentCompiler {
     if (frontendServerStarterPath != null && frontendServerStarterPath!.isNotEmpty) {
       commandToStartFrontendServer = <String>[
         artifacts.getArtifactPath(Artifact.engineDartBinary, platform: platform),
-        '--disable-dart-dev',
         frontendServerStarterPath!,
       ];
     } else {
       commandToStartFrontendServer = <String>[
         artifacts.getArtifactPath(Artifact.engineDartAotRuntime, platform: platform),
-        '--disable-dart-dev',
         artifacts.getArtifactPath(
           Artifact.frontendServerSnapshotForEngineDartSdk,
           platform: platform,
